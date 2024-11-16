@@ -1,88 +1,106 @@
 package api
 
 import (
-	"encoding/json"
-	"fmt"
-	"net/http"
+	"backend-assignment/internal/jobs"
 	"backend-assignment/internal/store"
+	"encoding/json"
+	"net/http"
+	"sync"
 	"time"
 )
 
-// Handle job submission, validate store IDs and return job ID
-func SubmitJobHandler(w http.ResponseWriter, r *http.Request, stores []store.Store) {
-	var job map[string]interface{}
-	err := json.NewDecoder(r.Body).Decode(&job)
-	if err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
+var (
+	jobMap = make(map[string]*jobs.Job)
+	mu     sync.Mutex // Protect access to jobMap
+)
 
-	visits, ok := job["visits"].([]interface{})
-	if !ok {
-		http.Error(w, "Invalid visits format", http.StatusBadRequest)
-		return
-	}
+// SubmitJobHandler handles job submission
+func SubmitJobHandler(stores []store.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var requestBody struct {
+			Count  int `json:"count"`
+			Visits []struct {
+				StoreID   string   `json:"store_id"`
+				ImageURL  []string `json:"image_url"`
+				VisitTime string   `json:"visit_time"`
+			} `json:"visits"`
+		}
 
-	// Validate each store ID
-	for _, v := range visits {
-		visit, ok := v.(map[string]interface{})
-		if !ok {
-			http.Error(w, "Invalid visit data format", http.StatusBadRequest)
+		// Decode the request body
+		err := json.NewDecoder(r.Body).Decode(&requestBody)
+		if err != nil {
+			http.Error(w, "Error: Failed to parse request body. Please ensure it is a valid JSON.", http.StatusBadRequest)
 			return
 		}
-		storeID, ok := visit["store_id"].(string)
-		if !ok || !store.IsValidStoreID(storeID, stores) {
-			http.Error(w, fmt.Sprintf("Invalid store ID: %s", storeID), http.StatusBadRequest)
+
+		// Validate the request
+		if requestBody.Count != len(requestBody.Visits) {
+			errorMessage := map[string]string{
+				"error": "The 'count' field does not match the number of 'visits'.",
+			}
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(errorMessage)
 			return
 		}
+
+		// Generate unique job ID
+		mu.Lock()
+		jobID := "job_" + time.Now().Format("20060102150405")
+		mu.Unlock()
+
+		// Create a new job
+		storeIDs := []string{}
+		for _, visit := range requestBody.Visits {
+			storeIDs = append(storeIDs, visit.StoreID)
+		}
+		job := jobs.NewJob(jobID, storeIDs)
+		mu.Lock()
+		jobMap[jobID] = job
+		mu.Unlock()
+
+		// Process the job asynchronously
+		go func() {
+			job.ProcessJob()
+		}()
+
+		// Respond with the job ID
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(map[string]string{
+			"job_id": jobID,
+		})
 	}
-
-	// Simulate job creation and set the initial status to "ongoing"
-	jobID := "job_78688" // Generate a unique job ID
-	mu.Lock() // Locking to ensure safe concurrent access to the map
-	jobStatuses[jobID] = "ongoing"
-	mu.Unlock()
-
-	// Simulate processing the job and updating the status
-	go processJob(jobID)
-
-	// Respond with the job ID
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	fmt.Fprintf(w, `{"job_id":"%s"}`, jobID)
 }
 
-// Handle checking the job status
-func GetJobInfoHandler(w http.ResponseWriter, r *http.Request) {
-	jobID := r.URL.Query().Get("jobid")
-	if jobID == "" {
-		http.Error(w, "Job ID is required", http.StatusBadRequest)
-		return
+// GetJobInfoHandler handles fetching job status
+func GetJobInfoHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		jobID := r.URL.Query().Get("jobid")
+		if jobID == "" {
+			http.Error(w, "JobID is required", http.StatusBadRequest)
+			return
+		}
+
+		mu.Lock()
+		job, exists := jobMap[jobID]
+		mu.Unlock()
+
+		if !exists {
+			http.Error(w, "Job not found", http.StatusBadRequest)
+			return
+		}
+
+		// Respond with the current job status and any errors
+		w.Header().Set("Content-Type", "application/json")
+		response := map[string]interface{}{
+			"job_id": jobID,
+			"status": job.GetJobStatus(),
+		}
+
+		// If there are errors, add them to the response
+		if len(job.Errors) > 0 {
+			response["error"] = job.Errors
+		}
+
+		json.NewEncoder(w).Encode(response)
 	}
-
-	// Check if the job exists in the status map
-	mu.Lock()
-	status, exists := jobStatuses[jobID]
-	mu.Unlock()
-
-	if !exists {
-		http.Error(w, "Job ID not found", http.StatusBadRequest)
-		return
-	}
-
-	// Return the job status
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, `{"status":"%s","job_id":"%s"}`, status, jobID)
-}
-
-// Simulate processing the job
-func processJob(jobID string) {
-	// Simulating the job processing with a random delay
-	time.Sleep(5 * time.Second) // Simulate processing time
-
-	// Simulating job completion
-	mu.Lock()
-	jobStatuses[jobID] = "completed"
-	mu.Unlock()
 }

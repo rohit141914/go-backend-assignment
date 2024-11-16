@@ -1,0 +1,197 @@
+Go Backend Assignment
+Overview
+This project is a backend system for processing job submissions and tracking their statuses. It supports functionalities like submitting jobs with store details and checking their statuses. The backend is built with Go and supports deployment using Docker while also being runnable locally.
+
+Features
+Job Submission:
+
+Accepts job requests containing store details and image URLs.
+Validates inputs such as store_id and image URLs.
+Processes jobs asynchronously.
+Job Status:
+
+Retrieves job status as:
+ongoing: Job is being processed.
+completed: Job was successfully processed.
+failed: An error occurred due to invalid store_id or image download failure.
+Error Reporting:
+
+Reports detailed errors for invalid store_id or failed image downloads.
+Compatibility:
+
+Can be run locally or inside a Docker container.
+Installation
+
+1. Prerequisites
+   Go: Version 1.22.3 or higher
+   Docker: Installed and running for Docker-based setup
+2. Running Locally
+   Clone the repository:
+
+bash
+Copy code
+git clone https://github.com/rohit141914/go-backend-assignment.git
+cd go-backend-assignment
+Install dependencies:
+
+bash
+Copy code
+go mod tidy
+Run the application:
+
+bash
+Copy code
+go run cmd/main.go
+Access the application at:
+
+Base URL: http://localhost:8080 3. Running with Docker
+Option 1: Build and Run Locally
+Build the Docker image:
+
+bash
+Copy code
+docker build -t go-backend-assignment .
+Run the Docker container:
+
+bash
+Copy code
+docker run -p 8080:8080 go-backend-assignment
+Option 2: Use Prebuilt Docker Image
+Pull the prebuilt Docker image:
+
+bash
+Copy code
+docker pull rohitsde/go-backend-assignment:v1.0
+Run the Docker container:
+
+bash
+Copy code
+docker run -p 8080:8080 rohitsde/go-backend-assignment:v1.0
+Access the application at:
+
+Base URL: http://localhost:8080
+
+Go Backend Assignment
+Overview
+This project is a backend system for processing job submissions and tracking their statuses. It supports functionalities like submitting jobs with store details and checking their statuses. The backend is built with Go and supports deployment using Docker while also being runnable locally.
+
+Features
+Job Submission:
+
+Accepts job requests containing store details and image URLs.
+Validates inputs such as store_id and image URLs.
+Processes jobs asynchronously.
+Job Status:
+
+Retrieves job status as:
+ongoing: Job is being processed.
+completed: Job was successfully processed.
+failed: An error occurred due to invalid store_id or image download failure.
+Error Reporting:
+
+Reports detailed errors for invalid store_id or failed image downloads.
+Compatibility:
+
+Can be run locally or inside a Docker container.
+Installation
+
+1. Prerequisites
+   Go: Version 1.22.3 or higher
+   Docker: Installed and running for Docker-based setup
+2. Running Locally
+   Clone the repository:
+
+bash
+Copy code
+git clone https://github.com/rohitsde/go-backend-assignment.git
+cd go-backend-assignment
+Install dependencies:
+
+bash
+Copy code
+go mod tidy
+Run the application:
+
+bash
+Copy code
+go run cmd/main.go
+Access the application at:
+
+Base URL: http://localhost:8080 3. Running with Docker
+Option 1: Build and Run Locally
+Build the Docker image:
+
+bash
+Copy code
+docker build -t go-backend-assignment .
+Run the Docker container:
+
+bash
+Copy code
+docker run -p 8080:8080 go-backend-assignment
+Option 2: Use Prebuilt Docker Image
+Pull the prebuilt Docker image:
+
+bash
+Copy code
+docker pull rohitsde/go-backend-assignment:v1.0
+Run the Docker container:
+
+bash
+Copy code
+docker run -p 8080:8080 rohitsde/go-backend-assignment:v1.0
+Access the application at:
+
+Base URL: http://localhost:8080
+API Endpoints
+
+1. Submit a Job
+   POST /api/jobs
+
+Request Body:
+json
+Copy code
+{
+"count": 2,
+"visits": [
+{
+"store_id": "RP00002",
+"image_url": ["https://www.gstatic.com/webp/gallery/2.jpg"],
+"visit_time": "2024-11-16T12:00:00Z"
+},
+{
+"store_id": "RP00002",
+"image_url": ["https://www.gstatic.com/webp/gallery/2.jpg"],
+"visit_time": "2024-11-16T12:00:00Z"
+}
+]
+}
+Responses:
+201 Created:
+json
+Copy code
+{
+"job_id": "job_20241116100000"
+}
+400 Bad Request:
+json
+Copy code
+{
+"error": "The 'count' field does not match the number of 'visits'."
+} 2. Check Job Status
+GET /api/status?jobid={job_id}
+
+Response:
+200 OK:
+json
+Copy code
+{
+"job_id": "job_20241116100000",
+"status": "ongoing"
+}
+400 Bad Request:
+json
+Copy code
+{
+"error": "Job not found"
+}

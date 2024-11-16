@@ -8,6 +8,8 @@ import (
 	"os"
 	"encoding/csv"
 	// "fmt"
+	"github.com/gorilla/mux"
+
 )
 
 // Load the store master data from CSV file
@@ -42,19 +44,21 @@ func loadStoreData(filename string) ([]store.Store, error) {
 }
 
 func main() {
-	// Load store master data from the CSV file
-	stores, err := loadStoreData("StoreMasterAssignment.csv")
+	// Load stores from the CSV file
+	stores, err := store.LoadStores("StoreMasterAssignment.csv")
 	if err != nil {
-		log.Fatal("Error loading store data:", err)
+		log.Fatalf("Error loading store data: %v", err)
 	}
 
-	// Register API routes and pass the stores data
-	api.RegisterRoutes(stores)
+	// Create a new router
+	router := mux.NewRouter()
+
+	// Register API routes
+	api.RegisterRoutes(router, stores)
 
 	// Start the server
-	log.Println("Starting server on port 8080...")
-	err = http.ListenAndServe(":8080", nil)
-	if err != nil {
-		log.Fatal("Failed to start server:", err)
+	port := "8080"
+	if err := http.ListenAndServe(":"+port, router); err != nil {
+		log.Fatalf("Failed to start server: %v", err)
 	}
 }
