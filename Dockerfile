@@ -1,17 +1,30 @@
-# Use Golang as the base image
-FROM golang:1.20-alpine
+# Use a lightweight Alpine image as base
+FROM alpine:latest
 
-# Set the working directory inside the container
+# Install dependencies
+RUN apk add --no-cache \
+    bash \
+    curl \
+    && curl -LO https://golang.org/dl/go1.22.3.linux-amd64.tar.gz \
+    && tar -C /usr/local -xzf go1.22.3.linux-amd64.tar.gz \
+    && rm go1.22.3.linux-amd64.tar.gz
+
+# Set Go binary to the PATH
+ENV PATH="/usr/local/go/bin:${PATH}"
+
+# Set the Current Working Directory inside the container
 WORKDIR /app
 
-# Copy the Go modules and install dependencies
+# Copy go.mod and go.sum files
 COPY go.mod go.sum ./
-RUN go mod tidy
 
-# Copy all the source code into the container
+# Download dependencies
+RUN go mod download
+
+# Copy the rest of the application code
 COPY . .
 
-# Expose port 8080 for the web server
+# Expose port 8080
 EXPOSE 8080
 
 # Run the application
